@@ -7,6 +7,8 @@ import { translations } from '../data/translations';
 import { gitaChapters } from '../data/gitaData';
 import SlokaDetailScreen from './SlokaDetailScreen';
 import { getSlokaOfTheDay } from '../utils/gitaUtils';
+import notifee, { TriggerType, AndroidImportance } from '@notifee/react-native';
+import { NOTIFICATION_CHANNEL_ID } from '../services/NotificationService';
 
 const HomeScreen = () => {
   const { isDarkMode, fontSizeMultiplier, language, lastViewedVerse } = useTheme();
@@ -45,8 +47,36 @@ const HomeScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>{getGreeting()}</Text>
-          <Text style={styles.dateText}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
+          <View>
+            <Text style={styles.greeting}>{getGreeting()}</Text>
+            <Text style={styles.dateText}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.testBtn} 
+            onPress={async () => {
+              const sloka = getSlokaOfTheDay();
+              await notifee.displayNotification({
+                title: 'Daily Sloka Reminder (Test)',
+                body: `Chapter ${sloka.chapter.chapterNumber} Sloka ${sloka.verse.verseNumber}: ${sloka.chapter.name}`,
+                android: {
+                  channelId: NOTIFICATION_CHANNEL_ID,
+                  importance: AndroidImportance.HIGH,
+                  actions: [
+                    {
+                      title: 'Play Now',
+                      pressAction: { id: 'play_sloka' },
+                    },
+                    {
+                      title: 'Not Now',
+                      pressAction: { id: 'dismiss' },
+                    },
+                  ],
+                },
+              });
+            }}
+          >
+            <Text style={styles.testBtnText}>TEST REMINDER</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Today's Sloka Banner */}
@@ -152,7 +182,24 @@ const getStyles = (isDark: boolean, fm: number) => StyleSheet.create({
     padding: 20,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  testBtn: {
+    backgroundColor: 'rgba(202, 117, 50, 0.1)',
+    borderWidth: 1,
+    borderColor: '#CA7532',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  testBtnText: {
+    color: '#CA7532',
+    fontSize: 10 * fm,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   greeting: {
     fontFamily: 'serif',

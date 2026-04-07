@@ -35,16 +35,12 @@ const SearchScreen = () => {
     <SafeAreaView style={styles.container}>
       {/* Top Header Bar */}
       <View style={styles.headerBar}>
-        <TouchableOpacity style={styles.headerIcon}>
-          <Menu color={isDarkMode ? '#EAE1D3' : '#8A4F1D'} size={24} />
-        </TouchableOpacity>
+        <View style={styles.headerIcon} />
         <View style={styles.logoContainer}>
           <Text style={styles.logoText}>THE SACRED</Text>
           <Text style={styles.logoTextSub}>EDITORIAL</Text>
         </View>
-        <TouchableOpacity style={styles.headerIcon}>
-          <UserCircle color={isDarkMode ? '#EAE1D3' : '#8A4F1D'} size={24} />
-        </TouchableOpacity>
+        <View style={styles.headerIcon} />
       </View>
 
       <KeyboardAvoidingView 

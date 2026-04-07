@@ -277,14 +277,14 @@ const ProfileScreen = () => {
             <View style={styles.pickerOptionsContainer}>
               <TouchableOpacity style={styles.pickerOptionBtn} onPress={openCamera}>
                 <View style={styles.pickerOptionIconContainer}>
-                  <Camera color="#B48259" size={24} />
+                   <Camera color="#B48259" size={24} />
                 </View>
                 <Text style={styles.pickerOptionText}>Take Photo</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.pickerOptionBtn} onPress={openGallery}>
                 <View style={styles.pickerOptionIconContainer}>
-                  <ImageIcon color="#B48259" size={24} />
+                   <ImageIcon color="#B48259" size={24} />
                 </View>
                 <Text style={styles.pickerOptionText}>Choose from Gallery</Text>
               </TouchableOpacity>
