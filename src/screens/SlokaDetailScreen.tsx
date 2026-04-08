@@ -4,6 +4,8 @@ import { ArrowLeft, Settings, Type, Globe, Bookmark, Share2, Repeat, SkipBack, P
 import { useTheme, LanguageCode } from '../context/ThemeContext';
 import { translations } from '../data/translations';
 import { Chapter, Verse } from '../data/gitaData';
+import TrackPlayer, { usePlaybackState, State, useProgress } from 'react-native-track-player';
+import { setupTrackPlayer, startSlokaPlayback } from '../services/NotificationService';
 
 interface SlokaDetailScreenProps {
   chapter: Chapter;
@@ -25,6 +27,10 @@ const LANGUAGES: { id: LanguageCode; name: string; translation: string }[] = [
 
 const SlokaDetailScreen: React.FC<SlokaDetailScreenProps> = ({ chapter, verse, onBack }) => {
   const { isDarkMode, fontSizeMultiplier, setFontSizeMultiplier, language, memorizedVerses, toggleMemorized, setLastViewedVerse } = useTheme();
+  const playbackState = usePlaybackState();
+  const isPlaying = playbackState.state === State.Playing;
+  const { position, duration } = useProgress();
+  
   const fm = fontSizeMultiplier || 1;
   const t = translations[language];
   const styles = getStyles(isDarkMode, fm);
@@ -38,6 +44,30 @@ const SlokaDetailScreen: React.FC<SlokaDetailScreenProps> = ({ chapter, verse, o
   useEffect(() => {
     setLastViewedVerse(chapter.id, verse.verseNumber);
   }, [chapter.id, verse.verseNumber]);
+
+  const togglePlayback = async () => {
+    const state = await TrackPlayer.getState();
+    if (state === State.Playing) {
+      await TrackPlayer.pause();
+    } else {
+      // Check if we already have a track loaded
+      const currentTrack = await TrackPlayer.getActiveTrack();
+      if (currentTrack) {
+        await TrackPlayer.play();
+      } else {
+        await setupTrackPlayer();
+        await startSlokaPlayback();
+      }
+    }
+  };
+
+  const skipForward = async () => {
+    await TrackPlayer.seekTo(position + 10);
+  };
+
+  const skipBackward = async () => {
+    await TrackPlayer.seekTo(Math.max(0, position - 10));
+  };
 
 
   const selectedLanguage = LANGUAGES.find(l => l.id === selectedLangId) || LANGUAGES[0];
@@ -159,19 +189,33 @@ const SlokaDetailScreen: React.FC<SlokaDetailScreenProps> = ({ chapter, verse, o
           <TouchableOpacity style={styles.playerIconBtn}>
             <Repeat color={isDarkMode ? '#7A726B' : '#A0988E'} size={20} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.playerIconBtn}>
+          <TouchableOpacity style={styles.playerIconBtn} onPress={skipBackward}>
             <SkipBack color={isDarkMode ? '#FFF' : '#151515'} size={22} fill={isDarkMode ? '#FFF' : '#151515'} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.playBtn} activeOpacity={0.8}>
-            <Play color="#FFF" size={20} fill="#FFF" style={{marginLeft: 2}} />
+          <TouchableOpacity style={styles.playBtn} activeOpacity={0.8} onPress={togglePlayback}>
+            {isPlaying ? (
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                 <View style={{ width: 4, height: 18, backgroundColor: '#FFF', borderRadius: 2 }} />
+                 <View style={{ width: 4, height: 18, backgroundColor: '#FFF', borderRadius: 2 }} />
+              </View>
+            ) : (
+              <Play color="#FFF" size={20} fill="#FFF" style={{marginLeft: 4}} />
+            )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.playerIconBtn}>
+          <TouchableOpacity style={styles.playerIconBtn} onPress={skipForward}>
             <SkipForward color={isDarkMode ? '#FFF' : '#151515'} size={22} fill={isDarkMode ? '#FFF' : '#151515'} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.playerIconBtn}>
             <Volume2 color={isDarkMode ? '#7A726B' : '#A0988E'} size={20} />
           </TouchableOpacity>
         </View>
+
+        {/* Progress Bar (Optional Add-on for better UX) */}
+        {duration > 0 && (
+          <View style={{ height: 2, backgroundColor: isDarkMode ? '#4A423B' : '#EEE', marginTop: 15, borderRadius: 1 }}>
+            <View style={{ width: `${(position / duration) * 100}%`, height: '100%', backgroundColor: '#CA7532', borderRadius: 1 }} />
+          </View>
+        )}
 
       </View>
 

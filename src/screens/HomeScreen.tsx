@@ -8,15 +8,13 @@ import { gitaChapters } from '../data/gitaData';
 import SlokaDetailScreen from './SlokaDetailScreen';
 import { getSlokaOfTheDay } from '../utils/gitaUtils';
 import notifee, { TriggerType, AndroidImportance } from '@notifee/react-native';
-import { NOTIFICATION_CHANNEL_ID } from '../services/NotificationService';
+import { NOTIFICATION_CHANNEL_ID, startSlokaPlayback } from '../services/NotificationService';
 
 const HomeScreen = () => {
   const { isDarkMode, fontSizeMultiplier, language, lastViewedVerse } = useTheme();
   const fm = fontSizeMultiplier || 1;
   const t = translations[language].home;
   const styles = getStyles(isDarkMode, fm);
-  const [isSlokaDetailVisible, setIsSlokaDetailVisible] = useState(false);
-  const [isContinueDetailVisible, setIsContinueDetailVisible] = useState(false);
 
   // Get dynamic Sloka of the Day
   const { chapter: dailyChapter, verse: dailyVerse } = getSlokaOfTheDay();
@@ -83,7 +81,7 @@ const HomeScreen = () => {
         <TouchableOpacity 
           style={styles.slokaBanner}
           activeOpacity={0.9}
-          onPress={() => setIsSlokaDetailVisible(true)}
+          onPress={() => startSlokaPlayback(dailyChapter.id, dailyVerse.verseNumber)}
         >
           <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
             <Defs>
@@ -132,7 +130,7 @@ const HomeScreen = () => {
             <TouchableOpacity 
               style={styles.continueCard}
               activeOpacity={0.8}
-              onPress={() => setIsContinueDetailVisible(true)}
+              onPress={() => startSlokaPlayback(lastChapter.id, lastVerse.verseNumber)}
             >
               <View style={styles.continueLeft}>
                 <View style={styles.continueChapterBadge}>
@@ -150,25 +148,6 @@ const HomeScreen = () => {
           </View>
         )}
       </ScrollView>
-
-      <Modal visible={isSlokaDetailVisible} animationType="slide" presentationStyle="fullScreen">
-        <SlokaDetailScreen 
-          chapter={dailyChapter} 
-          verse={dailyVerse} 
-          onBack={() => setIsSlokaDetailVisible(false)} 
-        />
-      </Modal>
-
-      {lastChapter && lastVerse && (
-        <Modal visible={isContinueDetailVisible} animationType="slide" presentationStyle="fullScreen">
-          <SlokaDetailScreen 
-            chapter={lastChapter} 
-            verse={lastVerse} 
-            onBack={() => setIsContinueDetailVisible(false)} 
-          />
-        </Modal>
-      )}
-
     </SafeAreaView>
   );
 };

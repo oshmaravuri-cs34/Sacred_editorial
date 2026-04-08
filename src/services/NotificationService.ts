@@ -1,8 +1,14 @@
 import notifee, { AndroidImportance, TriggerType, RepeatFrequency, AndroidAction, EventType } from '@notifee/react-native';
 import TrackPlayer, { Capability, AppKilledPlaybackBehavior } from 'react-native-track-player';
 import { getSlokaOfTheDay } from '../utils/gitaUtils';
+import { gitaChapters } from '../data/gitaData';
 
 export const NOTIFICATION_CHANNEL_ID = 'sloka_reminder';
+
+// Simple global subscriber for notification events
+type NotificationListener = (sloka: { chapterId: number, verseNumber: number }) => void;
+let listener: NotificationListener | null = null;
+export const setNotificationListener = (l: NotificationListener | null) => { listener = l; };
 
 export const initializeNotifications = async () => {
     // Create notification channel
@@ -74,9 +80,25 @@ export const setupTrackPlayer = async () => {
     }
 };
 
-export const startSlokaPlayback = async () => {
-    const sloka = getSlokaOfTheDay();
+export const startSlokaPlayback = async (chapterId?: number, verseNumber?: number) => {
+    let sloka;
+    if (chapterId && verseNumber) {
+        const chapter = gitaChapters.find(c => c.id === chapterId);
+        const verse = chapter?.verses.find(v => v.verseNumber === verseNumber);
+        if (chapter && verse) {
+            sloka = { chapter, verse };
+        }
+    }
+
+    if (!sloka) {
+        sloka = getSlokaOfTheDay();
+    }
     
+    // Notify listener (UI) if exists
+    if (listener) {
+        listener({ chapterId: sloka.chapter.id, verseNumber: sloka.verse.verseNumber });
+    }
+
     // Sample Audio URL - Replace with actual content
     const audioUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
 
@@ -99,9 +121,11 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
     }
 });
 
+// Foreground handling for both button and general press
 notifee.onForegroundEvent(async ({ type, detail }) => {
-    if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'play_sloka') {
+    if (type === EventType.PRESS || (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'play_sloka')) {
         await setupTrackPlayer();
         await startSlokaPlayback();
     }
 });
+

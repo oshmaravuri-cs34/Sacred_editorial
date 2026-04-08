@@ -15,20 +15,35 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import BottomTabs from './src/navigation/BottomTabs';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { useEffect } from 'react';
-import { initializeNotifications, scheduleDailySlokaNotification } from './src/services/NotificationService';
+import { initializeNotifications, scheduleDailySlokaNotification, setNotificationListener, setupTrackPlayer, startSlokaPlayback } from './src/services/NotificationService';
+import SlokaDetailScreen from './src/screens/SlokaDetailScreen';
+import { gitaChapters } from './src/data/gitaData';
+import notifee from '@notifee/react-native';
 
 function MainContent() {
   const { isDarkMode } = useTheme();
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [activeSloka, setActiveSloka] = useState<{ chapter: any, verse: any } | null>(null);
 
   useEffect(() => {
     const setup = async () => {
       await initializeNotifications();
       // Schedule for 8:00 AM by default
       await scheduleDailySlokaNotification(8, 0);
+
+      // Listen for notification-triggered playback
+      setNotificationListener((data) => {
+        const chapter = gitaChapters.find(c => c.id === data.chapterId);
+        const verse = chapter?.verses.find(v => v.verseNumber === data.verseNumber);
+        if (chapter && verse) {
+            setActiveSloka({ chapter, verse });
+        }
+      });
     };
     setup();
+
+    return () => setNotificationListener(null);
   }, []);
 
   return (
@@ -39,7 +54,17 @@ function MainContent() {
       ) : showOnboarding ? (
         <OnboardingScreen onFinish={() => setShowOnboarding(false)} />
       ) : (
-        <BottomTabs />
+        <>
+          <BottomTabs />
+          {/* Global Sloka Modal */}
+          {activeSloka && (
+            <SlokaDetailScreen 
+              chapter={activeSloka.chapter} 
+              verse={activeSloka.verse} 
+              onBack={() => setActiveSloka(null)} 
+            />
+          )}
+        </>
       )}
     </SafeAreaProvider>
   );
