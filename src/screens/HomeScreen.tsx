@@ -49,8 +49,8 @@ const HomeScreen = () => {
             <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.dateText}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.testBtn} 
+          <TouchableOpacity
+            style={styles.testBtn}
             onPress={async () => {
               const sloka = getSlokaOfTheDay();
               await notifee.displayNotification({
@@ -78,7 +78,7 @@ const HomeScreen = () => {
         </View>
 
         {/* Today's Sloka Banner */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.slokaBanner}
           activeOpacity={0.9}
           onPress={() => startSlokaPlayback(dailyChapter.id, dailyVerse.verseNumber)}
@@ -92,7 +92,7 @@ const HomeScreen = () => {
             </Defs>
             <Rect width="100%" height="100%" rx={16} fill="url(#bannerGrad)" />
           </Svg>
-          
+
           <View style={styles.bannerContent}>
             <View style={styles.slokaTopRow}>
               <Text style={styles.slokaLabel}>{t.todaySloka}</Text>
@@ -110,11 +110,11 @@ const HomeScreen = () => {
               {dailyVerse.sanskrit.split('\n')[0]}{"\n"}
               {dailyVerse.sanskrit.split('\n').filter(l => l.trim().length > 0 && !l.includes('।।')).pop() || dailyVerse.sanskrit}
             </Text>
-            
+
             <Text style={styles.chapterRef}>{dailyChapter.name} {dailyChapter.chapterNumber}.{dailyVerse.verseNumber}</Text>
 
             <View style={styles.divider} />
-            
+
             <Text style={styles.translationText}>
               {dailyVerse.text}
             </Text>
@@ -127,7 +127,7 @@ const HomeScreen = () => {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>CONTINUE READING</Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.continueCard}
               activeOpacity={0.8}
               onPress={() => startSlokaPlayback(lastChapter.id, lastVerse.verseNumber)}
@@ -253,7 +253,7 @@ const getStyles = (isDark: boolean, fm: number) => StyleSheet.create({
     fontFamily: 'serif',
     opacity: 0.9,
   },
-  
+
   // Continue Reading Styles
   continueSection: {
     marginTop: 35,
