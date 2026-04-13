@@ -22,11 +22,19 @@ export const initializeNotifications = async () => {
     await notifee.requestPermission();
 };
 
-export const scheduleDailySlokaNotification = async (hour: number = 8, minute: number = 0) => {
+export const scheduleDailySlokaNotification = async (hour: number = 8, minute: number = 0, period: 'AM' | 'PM' = 'AM') => {
+    // Cancel all previous triggers to avoid duplicates
+    await notifee.cancelAllNotifications();
+
     const sloka = getSlokaOfTheDay();
 
+    // Convert to 24h format
+    let scheduledHour = hour;
+    if (period === 'PM' && hour < 12) scheduledHour += 12;
+    if (period === 'AM' && hour === 12) scheduledHour = 0;
+
     const date = new Date();
-    date.setHours(hour, minute, 0, 0);
+    date.setHours(scheduledHour, minute, 0, 0);
 
     // If time has passed, set for tomorrow
     if (date.getTime() <= Date.now()) {
@@ -43,14 +51,14 @@ export const scheduleDailySlokaNotification = async (hour: number = 8, minute: n
                 actions: [
                     {
                         title: 'Play Now',
-                        pressAction: { id: 'play_sloka' },
+                        pressAction: { id: 'play_sloka', launchActivity: 'default' },
                     },
                     {
                         title: 'Not Now',
                         pressAction: { id: 'dismiss' },
                     },
                 ],
-                pressAction: { id: 'default' },
+                pressAction: { id: 'default', launchActivity: 'default' },
             },
         },
         {

@@ -17,7 +17,7 @@ const BottomTabs = () => {
 
   const renderScreen = () => {
     switch (activeTab) {
-      case 'Home': return <HomeScreen />;
+      case 'Home': return <HomeScreen onNavigateToChapters={() => setActiveTab('Chapters')} />;
       case 'Chapters': return <ChaptersScreen />;
       case 'Search': return <SearchScreen />;
       case 'Profile': return <ProfileScreen />;

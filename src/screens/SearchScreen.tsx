@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Animated, Image } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { Menu, UserCircle } from 'lucide-react-native';
+import { translations } from '../data/translations';
 
 const SearchScreen = () => {
   const { isDarkMode, fontSizeMultiplier, language } = useTheme();
@@ -9,7 +10,25 @@ const SearchScreen = () => {
   const styles = getStyles(isDarkMode, fm);
   const [offering, setOffering] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const fadeAnim = new Animated.Value(1);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
 
   const handlePour = () => {
     if (offering.trim().length === 0) return;
@@ -34,13 +53,8 @@ const SearchScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header Bar */}
-      <View style={styles.headerBar}>
-        <View style={styles.headerIcon} />
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>THE SACRED</Text>
-          <Text style={styles.logoTextSub}>EDITORIAL</Text>
-        </View>
-        <View style={styles.headerIcon} />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{translations[language].headers.title}</Text>
       </View>
 
       <KeyboardAvoidingView 
@@ -48,12 +62,31 @@ const SearchScreen = () => {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Animated.View style={{ opacity: fadeAnim, flex: 1 }}>
+          {/* Floating Krishna Character */}
+          <Animated.Image 
+            source={require('../assets/images/krishna.png')}
+            style={[
+              styles.krishnaGraphic,
+              {
+                transform: [
+                  {
+                    translateY: floatAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -15],
+                    }),
+                  },
+                ],
+              },
+            ]}
+            resizeMode="contain"
+          />
+
+          <Animated.View style={{ opacity: fadeAnim, flex: 1, zIndex: 2 }}>
             <View style={styles.guidanceLabelContainer}>
-              <Text style={styles.guidanceLabel}>SPIRITUAL GUIDANCE</Text>
+              <Text style={styles.guidanceLabel}>THE MAHA GURU</Text>
             </View>
 
-            <Text style={styles.mainTitle}>The Quiet{"\n"}Chamber of{"\n"}Truth</Text>
+            <Text style={styles.mainTitle}>The quiet chamber of the truth</Text>
 
             <Text style={styles.description}>
               In the stillness of your heart, the divine speaks. Share your burdens, your questions, or your gratitude with the cosmic manuscript.
@@ -97,39 +130,32 @@ const getStyles = (isDark: boolean, fm: number) => StyleSheet.create({
     flex: 1,
     backgroundColor: isDark ? '#141210' : '#FFFBF5',
   },
-  headerBar: {
-    flexDirection: 'row',
+  header: {
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: isDark ? '#2D2823' : '#F2E8DB',
   },
-  headerIcon: {
-    padding: 8,
-  },
-  logoContainer: {
-    alignItems: 'center',
-  },
-  logoText: {
+  headerTitle: {
     fontFamily: 'serif',
-    fontSize: 14 * fm,
+    fontSize: 18 * fm,
     fontWeight: 'bold',
-    letterSpacing: 2,
-    color: isDark ? '#EAE1D3' : '#8A4F1D',
-  },
-  logoTextSub: {
-    fontFamily: 'serif',
-    fontSize: 14 * fm,
-    fontWeight: 'bold',
-    letterSpacing: 2,
-    marginTop: -4,
-    color: isDark ? '#EAE1D3' : '#8A4F1D',
+    color: '#B48259',
+    fontStyle: 'italic',
   },
   scrollContent: {
     flexGrow: 1,
     padding: 30,
+    position: 'relative',
+  },
+  krishnaGraphic: {
+    position: 'absolute',
+    right: -20,
+    top: 20,
+    width: 250,
+    height: 400,
+    opacity: isDark ? 0.4 : 0.2, // Adjust opacity for subtlety
+    zIndex: 1,
   },
   guidanceLabelContainer: {
     marginBottom: 25,
@@ -142,10 +168,10 @@ const getStyles = (isDark: boolean, fm: number) => StyleSheet.create({
   },
   mainTitle: {
     fontFamily: 'serif',
-    fontSize: 48 * fm,
+    fontSize: 32 * fm,
     fontWeight: '600',
     color: isDark ? '#EAE1D3' : '#2A2A2A',
-    lineHeight: 56 * fm,
+    lineHeight: 40 * fm,
     marginBottom: 20,
   },
   description: {

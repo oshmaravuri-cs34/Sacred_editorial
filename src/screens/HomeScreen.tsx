@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal, Share, Alert } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import { Bookmark, Share2 } from 'lucide-react-native';
+import { Bookmark, Share2, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { translations } from '../data/translations';
 import { gitaChapters } from '../data/gitaData';
@@ -10,7 +10,7 @@ import { getSlokaOfTheDay } from '../utils/gitaUtils';
 import notifee, { TriggerType, AndroidImportance } from '@notifee/react-native';
 import { NOTIFICATION_CHANNEL_ID, startSlokaPlayback } from '../services/NotificationService';
 
-const HomeScreen = () => {
+const HomeScreen = ({ onNavigateToChapters }: { onNavigateToChapters?: () => void }) => {
   const { isDarkMode, fontSizeMultiplier, language, lastViewedVerse } = useTheme();
   const fm = fontSizeMultiplier || 1;
   const t = translations[language].home;
@@ -49,32 +49,6 @@ const HomeScreen = () => {
             <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.dateText}>{new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.testBtn}
-            onPress={async () => {
-              const sloka = getSlokaOfTheDay();
-              await notifee.displayNotification({
-                title: 'Daily Sloka Reminder (Test)',
-                body: `Chapter ${sloka.chapter.chapterNumber} Sloka ${sloka.verse.verseNumber}: ${sloka.chapter.name}`,
-                android: {
-                  channelId: NOTIFICATION_CHANNEL_ID,
-                  importance: AndroidImportance.HIGH,
-                  actions: [
-                    {
-                      title: 'Play Now',
-                      pressAction: { id: 'play_sloka' },
-                    },
-                    {
-                      title: 'Not Now',
-                      pressAction: { id: 'dismiss' },
-                    },
-                  ],
-                },
-              });
-            }}
-          >
-            <Text style={styles.testBtnText}>TEST REMINDER</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Today's Sloka Banner */}
@@ -124,8 +98,11 @@ const HomeScreen = () => {
         {/* Continue Reading Card */}
         {lastChapter && lastVerse && (
           <View style={styles.continueSection}>
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { justifyContent: 'space-between' }]}>
               <Text style={styles.sectionTitle}>CONTINUE READING</Text>
+              <TouchableOpacity onPress={onNavigateToChapters}>
+                <Text style={{ fontSize: 12 * fm, color: '#CA7532', fontWeight: 'bold' }}>View All</Text>
+              </TouchableOpacity>
             </View>
             <TouchableOpacity
               style={styles.continueCard}
@@ -147,6 +124,20 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Explore Chapters Card */}
+        <TouchableOpacity
+          style={[styles.continueCard, { marginTop: lastChapter && lastVerse ? 0 : 35, marginBottom: 40 }]}
+          activeOpacity={0.8}
+          onPress={onNavigateToChapters}
+        >
+          <View style={styles.continueLeft}>
+             <Text style={styles.exploreTitle}>Explore All Chapters</Text>
+          </View>
+          <View style={styles.exploreArrow}>
+            <ArrowRight color={isDarkMode ? "#EAE1D3" : "#1A1816"} size={20} />
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -165,20 +156,6 @@ const getStyles = (isDark: boolean, fm: number) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  testBtn: {
-    backgroundColor: 'rgba(202, 117, 50, 0.1)',
-    borderWidth: 1,
-    borderColor: '#CA7532',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  testBtnText: {
-    color: '#CA7532',
-    fontSize: 10 * fm,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
   },
   greeting: {
     fontFamily: 'serif',
@@ -325,6 +302,17 @@ const getStyles = (isDark: boolean, fm: number) => StyleSheet.create({
     fontSize: 10 * fm,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  exploreTitle: {
+    fontFamily: 'serif',
+    fontSize: 18 * fm,
+    fontWeight: 'bold',
+    color: isDark ? '#EAE1D3' : '#333',
+  },
+  exploreArrow: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: isDark ? '#4A4238' : '#F2E8DB',
   }
 });
 

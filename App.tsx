@@ -25,12 +25,11 @@ function MainContent() {
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [activeSloka, setActiveSloka] = useState<{ chapter: any, verse: any } | null>(null);
+  const { notificationTime } = useTheme();
 
   useEffect(() => {
     const setup = async () => {
       await initializeNotifications();
-      // Schedule for 8:00 AM by default
-      await scheduleDailySlokaNotification(8, 0);
 
       // Listen for notification-triggered playback
       setNotificationListener((data) => {
@@ -40,11 +39,23 @@ function MainContent() {
             setActiveSloka({ chapter, verse });
         }
       });
+
+      // Handle initial notification (app cold start)
+      const initialNotification = await notifee.getInitialNotification();
+      if (initialNotification && (initialNotification.pressAction?.id === 'default' || initialNotification.pressAction?.id === 'play_sloka')) {
+          await setupTrackPlayer();
+          await startSlokaPlayback();
+      }
     };
     setup();
 
     return () => setNotificationListener(null);
   }, []);
+
+  // Update schedule whenever notificationTime changes
+  useEffect(() => {
+    scheduleDailySlokaNotification(notificationTime.hour, notificationTime.minute, notificationTime.period);
+  }, [notificationTime]);
 
   return (
     <SafeAreaProvider style={[styles.container, { backgroundColor: isDarkMode ? '#1A1816' : '#FDFBF7' }]}>

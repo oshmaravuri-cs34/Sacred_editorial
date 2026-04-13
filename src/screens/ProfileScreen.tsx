@@ -18,7 +18,7 @@ const LANG_OPTIONS: { id: LanguageCode; name: string; native: string }[] = [
 ];
 
 const ProfileScreen = () => {
-  const { isDarkMode, toggleDarkMode, fontSizeMultiplier, setFontSizeMultiplier, language, setLanguage, memorizedVerses } = useTheme();
+  const { isDarkMode, toggleDarkMode, fontSizeMultiplier, setFontSizeMultiplier, language, setLanguage, memorizedVerses, notificationTime, setNotificationTime } = useTheme();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isPickerModalVisible, setIsPickerModalVisible] = useState(false);
   const [isFontModalVisible, setIsFontModalVisible] = useState(false);
@@ -29,9 +29,8 @@ const ProfileScreen = () => {
   // Profile state
   const [name, setName] = useState('Arjun Sharma');
   const [email, setEmail] = useState('arjun.seeker@example.com');
-  const [reflectionTime, setReflectionTime] = useState({ h: 7, m: 0, p: 'AM' });
   const [isTimeModalVisible, setIsTimeModalVisible] = useState(false);
-  const [tempTime, setTempTime] = useState({ h: 7, m: 0, p: 'AM' });
+  const [tempTime, setTempTime] = useState<{ h: number, m: number, p: 'AM' | 'PM' }>({ h: 7, m: 0, p: 'AM' });
   
   // Temporary state for editing before save
   const [editName, setEditName] = useState(name);
@@ -44,11 +43,11 @@ const ProfileScreen = () => {
   const togglePeriod = () => setTempTime(prev => ({...prev, p: prev.p === 'AM' ? 'PM' : 'AM'}));
 
   const handleOpenTimeModal = () => {
-    setTempTime(reflectionTime);
+    setTempTime({ h: notificationTime.hour, m: notificationTime.minute, p: notificationTime.period });
     setIsTimeModalVisible(true);
   };
   const handleSaveTime = () => {
-    setReflectionTime(tempTime);
+    setNotificationTime({ hour: tempTime.h, minute: tempTime.m, period: tempTime.p });
     setIsTimeModalVisible(false);
   };
 
@@ -230,7 +229,7 @@ const ProfileScreen = () => {
             </View>
             <TouchableOpacity style={styles.settingActionRow} onPress={handleOpenTimeModal}>
               <Text style={[styles.settingValueText, { fontSize: 13 * fm }]}>
-                {reflectionTime.h}:{reflectionTime.m.toString().padStart(2, '0')}{"\n"}{reflectionTime.p}
+                {notificationTime.hour}:{notificationTime.minute.toString().padStart(2, '0')}{"\n"}{notificationTime.period}
               </Text>
               <Edit3 color="#A0988E" size={14} style={{marginLeft: 8}} />
             </TouchableOpacity>

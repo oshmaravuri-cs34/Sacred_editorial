@@ -14,12 +14,15 @@ interface ThemeContextType {
   toggleMemorized: (verseId: string) => void;
   lastViewedVerse: { chapterId: number, verseNumber: number } | null;
   setLastViewedVerse: (chapterId: number, verseNumber: number) => void;
+  notificationTime: { hour: number, minute: number, period: 'AM' | 'PM' };
+  setNotificationTime: (time: { hour: number, minute: number, period: 'AM' | 'PM' }) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const MEMORIZED_KEY = '@memorized_verses';
 const LAST_VIEWED_KEY = '@last_view_progress';
+const NOTIFICATION_TIME_KEY = '@notification_time';
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -27,6 +30,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguage] = useState<LanguageCode>('en');
   const [memorizedVerses, setMemorizedVerses] = useState<string[]>([]);
   const [lastViewedVerse, setLastViewedState] = useState<{ chapterId: number, verseNumber: number } | null>(null);
+  const [notificationTime, setNotificationTimeState] = useState<{ hour: number, minute: number, period: 'AM' | 'PM' }>({ hour: 8, minute: 0, period: 'AM' });
 
   // Load state on mount
   useEffect(() => {
@@ -40,6 +44,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         const storedLastViewed = await AsyncStorage.getItem(LAST_VIEWED_KEY);
         if (storedLastViewed) {
           setLastViewedState(JSON.parse(storedLastViewed));
+        }
+
+        const storedNotificationTime = await AsyncStorage.getItem(NOTIFICATION_TIME_KEY);
+        if (storedNotificationTime) {
+          setNotificationTimeState(JSON.parse(storedNotificationTime));
         }
       } catch (e) {
         console.error('Failed to load stored data', e);
@@ -73,6 +82,17 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     saveLastViewed();
   }, [lastViewedVerse]);
 
+  useEffect(() => {
+    const saveNotificationTime = async () => {
+      try {
+        await AsyncStorage.setItem(NOTIFICATION_TIME_KEY, JSON.stringify(notificationTime));
+      } catch (e) {
+        console.error('Failed to save notification time', e);
+      }
+    };
+    saveNotificationTime();
+  }, [notificationTime]);
+
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => !prevMode);
   };
@@ -89,6 +109,10 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     setLastViewedState({ chapterId, verseNumber });
   };
 
+  const setNotificationTime = (time: { hour: number, minute: number, period: 'AM' | 'PM' }) => {
+    setNotificationTimeState(time);
+  };
+
   return (
     <ThemeContext.Provider value={{ 
       isDarkMode, 
@@ -100,7 +124,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       memorizedVerses,
       toggleMemorized,
       lastViewedVerse,
-      setLastViewedVerse
+      setLastViewedVerse,
+      notificationTime,
+      setNotificationTime
     }}>
       {children}
     </ThemeContext.Provider>
