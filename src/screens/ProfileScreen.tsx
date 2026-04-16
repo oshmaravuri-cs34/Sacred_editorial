@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Image, TouchableOpacity, Switch, Platform, Modal, TextInput, KeyboardAvoidingView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Image, TouchableOpacity, Switch, Platform, Modal, TextInput, KeyboardAvoidingView, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { Menu, Settings, Edit2, Globe, Moon, Type, Bell, DownloadCloud, ChevronRight, Edit3, Trash2, X, Check, Camera, Image as ImageIcon, ChevronUp, ChevronDown, Clock, Eye } from 'lucide-react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+// @ts-ignore
+import RNHTMLtoPDF from 'react-native-html-to-pdf';
+import RNFS from 'react-native-fs';
 import { useTheme, LanguageCode } from '../context/ThemeContext';
 import { translations } from '../data/translations';
+import { gitaChapters } from '../data/gitaData';
 
 const LANG_OPTIONS: { id: LanguageCode; name: string; native: string }[] = [
   { id: 'en', name: 'English', native: 'English' },
@@ -23,6 +27,8 @@ const ProfileScreen = () => {
   const [isPickerModalVisible, setIsPickerModalVisible] = useState(false);
   const [isFontModalVisible, setIsFontModalVisible] = useState(false);
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
+  const [isDownloadModalVisible, setIsDownloadModalVisible] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [tempFontSize, setTempFontSize] = useState(fontSizeMultiplier);
   const [profileImageUri, setProfileImageUri] = useState<string | null>(null);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
@@ -55,6 +61,65 @@ const ProfileScreen = () => {
     setName(editName);
     setEmail(editEmail);
     setIsEditModalVisible(false);
+  };
+
+  const downloadAllChaptersToPDF = async () => {
+    setIsDownloading(true);
+    try {
+      let htmlStr = `
+        <html>
+          <head>
+            <style>
+              body { font-family: serif; padding: 20px; color: #333; }
+              h1 { text-align: center; color: #B48259; border-bottom: 2px solid #CA7532; padding-bottom: 10px; }
+              h2 { color: #A45511; margin-top: 30px; font-size: 24px; }
+              .verse-container { margin-bottom: 20px; padding: 15px; background-color: #FDFBF7; border-left: 4px solid #CA7532; page-break-inside: avoid; }
+              .sanskrit { font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: #8C4000; text-align: center; }
+              .transliteration { font-style: italic; color: #555; margin-bottom: 10px; text-align: center; }
+              .translation { margin-bottom: 10px; font-weight: bold; }
+              .explanation { font-size: 0.9em; color: #666; text-align: justify; }
+            </style>
+          </head>
+          <body>
+            <h1>Bhagavad Gita - Offline Sanctuary</h1>
+      `;
+
+      gitaChapters.forEach(chapter => {
+        htmlStr += `<h2>Chapter ${chapter.chapterNumber}: ${chapter.name} (${chapter.sanskritName})</h2>`;
+        chapter.verses.forEach(verse => {
+          htmlStr += `
+            <div class="verse-container">
+              <strong>Verse ${verse.verseNumber}</strong>
+              <div class="sanskrit">${verse.sanskrit.replace(/\n/g, '<br/>')}</div>
+              <div class="transliteration">${verse.transliteration.replace(/\n/g, '<br/>')}</div>
+              <div class="translation">${verse.text}</div>
+              <div class="explanation"><em>Explanation:</em> ${verse.explanation}</div>
+            </div>
+          `;
+        });
+      });
+
+      htmlStr += `</body></html>`;
+
+      const options = {
+        html: htmlStr,
+        fileName: 'BhagavadGita_Offline',
+        directory: 'Documents',
+      };
+
+      const file = await RNHTMLtoPDF.convert(options);
+      
+      Alert.alert(
+        "Download Complete",
+        `All chapters have been saved successfully to your offline storage.\n(${file.filePath})`
+      );
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("Error", "Failed to generate PDF. " + e.message);
+    } finally {
+      setIsDownloading(false);
+      setIsDownloadModalVisible(false);
+    }
   };
 
   const handleOpenEdit = () => {
@@ -132,7 +197,7 @@ const ProfileScreen = () => {
               <Edit2 color="#A45511" size={16} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.subtitle}>{t.seeker} - {t.joined}</Text>
+
 
           {/* Stats Bar */}
           <View style={styles.statsContainer}>
@@ -236,7 +301,11 @@ const ProfileScreen = () => {
           </View>
 
           {/* Offline Sanctuary Item */}
-          <View style={styles.settingItem}>
+          <TouchableOpacity 
+            style={styles.settingItem}
+            activeOpacity={0.7}
+            onPress={() => setIsDownloadModalVisible(true)}
+          >
             <View style={styles.settingIconBox}>
               <DownloadCloud color="#B48259" size={20} strokeWidth={2} />
             </View>
@@ -246,11 +315,11 @@ const ProfileScreen = () => {
             </View>
             <View style={styles.offlineActionRow}>
               <Text style={styles.offlineSize}>124 MB{"\n"}USED</Text>
-              <TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.7}>
                 <Trash2 color="#CD3A30" size={16} />
               </TouchableOpacity>
             </View>
-          </View>
+          </TouchableOpacity>
 
         </View>
 
@@ -539,6 +608,49 @@ const ProfileScreen = () => {
                   );
                 }}
               />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Offline Download Modal */}
+      <Modal visible={isDownloadModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.pickerModalBg}>
+          <View style={styles.pickerModalContainer}>
+            <View style={styles.pickerModalHeader}>
+              <Text style={styles.pickerModalTitle}>Offline Sanctuary</Text>
+              <TouchableOpacity onPress={() => setIsDownloadModalVisible(false)} style={styles.closeBtn}>
+                <X color="#A45511" size={20} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ paddingVertical: 10 }}>
+              <Text style={{ fontFamily: 'serif', fontSize: 16 * fm, color: isDarkMode ? '#EAE1D3' : '#333', textAlign: 'center', marginBottom: 25 }}>
+                Do you want to download all chapters for offline reading?
+              </Text>
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <TouchableOpacity 
+                  style={[styles.saveBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#CA7532', flex: 1, marginRight: 10 }]} 
+                  onPress={() => setIsDownloadModalVisible(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.saveBtnText, { color: '#CA7532' }]}>CANCEL</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.saveBtn, { flex: 1, marginLeft: 10 }]} 
+                  onPress={downloadAllChaptersToPDF}
+                  activeOpacity={0.8}
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <Text style={styles.saveBtnText}>YES</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>

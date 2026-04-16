@@ -13,7 +13,7 @@ const BottomTabs = () => {
   const { isDarkMode, fontSizeMultiplier, language } = useTheme();
   const fm = fontSizeMultiplier || 1;
   const t = translations[language].tabs;
-  const [activeTab, setActiveTab] = useState('Profile');
+  const [activeTab, setActiveTab] = useState('Home');
 
   const renderScreen = () => {
     switch (activeTab) {

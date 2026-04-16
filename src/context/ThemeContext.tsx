@@ -16,6 +16,8 @@ interface ThemeContextType {
   setLastViewedVerse: (chapterId: number, verseNumber: number) => void;
   notificationTime: { hour: number, minute: number, period: 'AM' | 'PM' };
   setNotificationTime: (time: { hour: number, minute: number, period: 'AM' | 'PM' }) => void;
+  hasSeenOnboarding: boolean;
+  completeOnboarding: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -23,6 +25,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const MEMORIZED_KEY = '@memorized_verses';
 const LAST_VIEWED_KEY = '@last_view_progress';
 const NOTIFICATION_TIME_KEY = '@notification_time';
+const ONBOARDING_KEY = '@has_seen_onboarding';
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -31,6 +34,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [memorizedVerses, setMemorizedVerses] = useState<string[]>([]);
   const [lastViewedVerse, setLastViewedState] = useState<{ chapterId: number, verseNumber: number } | null>(null);
   const [notificationTime, setNotificationTimeState] = useState<{ hour: number, minute: number, period: 'AM' | 'PM' }>({ hour: 8, minute: 0, period: 'AM' });
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
   // Load state on mount
   useEffect(() => {
@@ -49,6 +53,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         const storedNotificationTime = await AsyncStorage.getItem(NOTIFICATION_TIME_KEY);
         if (storedNotificationTime) {
           setNotificationTimeState(JSON.parse(storedNotificationTime));
+        }
+
+        const storedOnboarding = await AsyncStorage.getItem(ONBOARDING_KEY);
+        if (storedOnboarding === 'true') {
+          setHasSeenOnboarding(true);
         }
       } catch (e) {
         console.error('Failed to load stored data', e);
@@ -113,6 +122,15 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     setNotificationTimeState(time);
   };
 
+  const completeOnboarding = async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      setHasSeenOnboarding(true);
+    } catch (e) {
+      console.error('Failed to save onboarding state', e);
+    }
+  };
+
   return (
     <ThemeContext.Provider value={{ 
       isDarkMode, 
@@ -126,7 +144,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       lastViewedVerse,
       setLastViewedVerse,
       notificationTime,
-      setNotificationTime
+      setNotificationTime,
+      hasSeenOnboarding,
+      completeOnboarding
     }}>
       {children}
     </ThemeContext.Provider>

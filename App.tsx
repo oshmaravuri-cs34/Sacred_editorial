@@ -21,11 +21,9 @@ import { gitaChapters } from './src/data/gitaData';
 import notifee from '@notifee/react-native';
 
 function MainContent() {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, notificationTime, hasSeenOnboarding, completeOnboarding } = useTheme();
   const [isSplashVisible, setIsSplashVisible] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(true);
   const [activeSloka, setActiveSloka] = useState<{ chapter: any, verse: any } | null>(null);
-  const { notificationTime } = useTheme();
 
   useEffect(() => {
     const setup = async () => {
@@ -62,18 +60,18 @@ function MainContent() {
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#1A1816' : '#FDFBF7'} />
       {isSplashVisible ? (
         <SplashScreen onFinish={() => setIsSplashVisible(false)} />
-      ) : showOnboarding ? (
-        <OnboardingScreen onFinish={() => setShowOnboarding(false)} />
+      ) : !hasSeenOnboarding ? (
+        <OnboardingScreen onFinish={completeOnboarding} />
       ) : (
         <>
-          <BottomTabs />
-          {/* Global Sloka Modal */}
-          {activeSloka && (
+          {activeSloka ? (
             <SlokaDetailScreen 
               chapter={activeSloka.chapter} 
               verse={activeSloka.verse} 
               onBack={() => setActiveSloka(null)} 
             />
+          ) : (
+            <BottomTabs />
           )}
         </>
       )}
