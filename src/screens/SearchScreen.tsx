@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, Scro
 import { useTheme } from '../context/ThemeContext';
 import { Menu, UserCircle } from 'lucide-react-native';
 import { translations } from '../data/translations';
+import { getMahaGuruGuidance } from '../services/apiClient';
+import { ActivityIndicator } from 'react-native';
 
 const SearchScreen = () => {
   const { isDarkMode, fontSizeMultiplier, language } = useTheme();
@@ -10,6 +12,10 @@ const SearchScreen = () => {
   const styles = getStyles(isDarkMode, fm);
   const [offering, setOffering] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [guidanceResponse, setGuidanceResponse] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
 
@@ -30,24 +36,35 @@ const SearchScreen = () => {
     ).start();
   }, []);
 
-  const handlePour = () => {
+  const handlePour = async () => {
     if (offering.trim().length === 0) return;
     
+    setIsLoading(true);
+    setGuidanceResponse('');
+    setErrorMsg('');
+
     // Smooth fade-out animation for the "poured" heart
     Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 1500,
+      toValue: 0.5,
+      duration: 1000,
       useNativeDriver: true,
-    }).start(() => {
+    }).start();
+
+    try {
+      const response = await getMahaGuruGuidance(offering);
+      setGuidanceResponse(response.guidance);
+    } catch (err) {
+      setErrorMsg('The divine connection was interrupted. Please try again.');
+    } finally {
+      setIsLoading(false);
       setIsSubmitted(true);
-      setOffering('');
-      // Reset fade for the next offering
+      
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 1000,
         useNativeDriver: true,
-      }).start(() => setIsSubmitted(false));
-    });
+      }).start();
+    }
   };
 
   return (
@@ -106,15 +123,42 @@ const SearchScreen = () => {
             </View>
 
             <TouchableOpacity 
-              style={[styles.pourButton, offering.trim().length === 0 && styles.pourDisabled]} 
+              style={[styles.pourButton, (offering.trim().length === 0 || isLoading) && styles.pourDisabled]} 
               onPress={handlePour}
-              disabled={offering.trim().length === 0}
+              disabled={offering.trim().length === 0 || isLoading}
             >
-              <Text style={styles.pourButtonText}>FIND SOLUTION</Text>
+              {isLoading ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <Text style={styles.pourButtonText}>FIND SOLUTION</Text>
+              )}
             </TouchableOpacity>
+
+            {errorMsg ? (
+              <Text style={[styles.mainTitle, { fontSize: 16 * fm, color: '#CD3A30', marginTop: 20, textAlign: 'center' }]}>
+                {errorMsg}
+              </Text>
+            ) : null}
+
+            {isSubmitted && guidanceResponse ? (
+               <View style={styles.guidanceResponseContainer}>
+                 <Text style={styles.guidanceLabel}>DIVINE GUIDANCE</Text>
+                 <Text style={[styles.description, { color: isDarkMode ? '#FFF' : '#333' }]}>
+                   {guidanceResponse}
+                 </Text>
+                 <TouchableOpacity style={styles.resetButton} onPress={() => {
+                   setIsSubmitted(false);
+                   setOffering('');
+                   setGuidanceResponse('');
+                   setErrorMsg('');
+                 }}>
+                   <Text style={[styles.pourButtonText, {color: '#8A4F1D'}]}>ASK ANOTHER QUESTION</Text>
+                 </TouchableOpacity>
+               </View>
+            ) : null}
           </Animated.View>
 
-          {isSubmitted && (
+          {(isLoading && !guidanceResponse) && (
             <View style={styles.successContainer}>
               <Text style={styles.successText}>Seeking divine guidance for your heart's request...</Text>
             </View>
@@ -237,6 +281,22 @@ const getStyles = (isDark: boolean, fm: number) => StyleSheet.create({
     color: '#8A4F1D',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  guidanceResponseContainer: {
+    marginTop: 40,
+    padding: 20,
+    backgroundColor: isDark ? '#26221D' : '#F6F2EB',
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#CA7532',
+  },
+  resetButton: {
+    marginTop: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#8A4F1D',
+    borderRadius: 8,
   }
 });
 

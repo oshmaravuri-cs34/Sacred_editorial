@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Platform, Share, Alert, Modal, FlatList } from 'react-native';
-import { ArrowLeft, Settings, Type, Globe, Bookmark, Share2, Repeat, SkipBack, Play, SkipForward, Volume2, X, Check, Star } from 'lucide-react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Platform, Share, Alert, Modal, FlatList, Pressable } from 'react-native';
+import { ArrowLeft, Settings, Type, Globe, Bookmark, Share2, Repeat, SkipBack, Play, SkipForward, Volume2, X, Check, Star, RotateCcw, RotateCw, Pause } from 'lucide-react-native';
 import { useTheme, LanguageCode } from '../context/ThemeContext';
 import { translations } from '../data/translations';
 import { Chapter, Verse } from '../data/gitaData';
@@ -25,6 +25,15 @@ const LANGUAGES: { id: LanguageCode; name: string; translation: string }[] = [
   { id: 'ml', name: 'Malayalam (മലയാളം)', translation: 'ഈ ശരീരത്തിൽ വസിക്കുന്ന ആത്മാവ് ബാല്യം, യൗവനം, വാർദ്ധക്യം എന്നിവയിലൂടെ കടന്നുപോകുന്നതുപോലെ, മരണശേഷം മറെറാരു ശരീരത്തിലേക്ക് കടക്കുകയും ചെയ്യുന്നു. ധീരനായ ഒരാൾ അത്തരം മാറ്റങ്ങളിൽ ആശയക്കുഴപ്പത്തിലാകുന്നില്ല.' },
 ];
 
+const WAVEFORM_BARS = [0.4, 0.6, 0.8, 1.0, 0.6, 0.5, 0.9, 0.7, 0.3, 0.5, 0.8, 0.9, 0.6, 0.4, 0.8, 1.0, 0.7, 0.5, 0.9, 0.8, 0.4, 0.6, 0.8, 1.0, 0.6, 0.5, 0.9, 0.7, 0.3, 0.5, 0.8, 0.9, 0.6, 0.4, 0.8, 1.0, 0.7, 0.5, 0.9, 0.8];
+
+const formatTime = (seconds: number) => {
+  if (!seconds || isNaN(seconds)) return '00:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+};
+
 const SlokaDetailScreen: React.FC<SlokaDetailScreenProps> = ({ chapter, verse, onBack }) => {
   const { isDarkMode, fontSizeMultiplier, setFontSizeMultiplier, language, memorizedVerses, toggleMemorized, setLastViewedVerse } = useTheme();
   const playbackState = usePlaybackState();
@@ -35,29 +44,98 @@ const SlokaDetailScreen: React.FC<SlokaDetailScreenProps> = ({ chapter, verse, o
   const t = translations[language];
   const styles = getStyles(isDarkMode, fm);
   
+  const [curChapter, setCurChapter] = useState(chapter);
+  const [curVerse, setCurVerse] = useState(verse);
+
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
   const [isFontModalVisible, setIsFontModalVisible] = useState(false);
   const [tempFontSize, setTempFontSize] = useState(fontSizeMultiplier);
   const [selectedLangId, setSelectedLangId] = useState(language);
+  const [playerWidth, setPlayerWidth] = useState(0);
 
-  // Track user progress
+  // Track user progress and auto-play audio
   useEffect(() => {
-    setLastViewedVerse(chapter.id, verse.verseNumber);
-  }, [chapter.id, verse.verseNumber]);
+    setLastViewedVerse(curChapter.id, curVerse.verseNumber);
+    
+    // Auto-play the sloka audio on mount/switch
+    const autoPlay = async () => {
+      try {
+        await setupTrackPlayer();
+        await startSlokaPlayback(curChapter.id, curVerse.verseNumber, false);
+      } catch (err) {
+        console.error('Auto-play failed:', err);
+      }
+    };
+    
+    autoPlay();
+  }, [curChapter.id, curVerse.verseNumber]);
 
   const togglePlayback = async () => {
-    const state = await TrackPlayer.getState();
-    if (state === State.Playing) {
-      await TrackPlayer.pause();
-    } else {
-      // Check if we already have a track loaded
-      const currentTrack = await TrackPlayer.getActiveTrack();
-      if (currentTrack) {
-        await TrackPlayer.play();
-      } else {
-        await setupTrackPlayer();
-        await startSlokaPlayback();
+    console.log('=== PLAY BUTTON TAPPED ===');
+    try {
+      const state = playbackState.state;
+      console.log('Current playback state:', state);
+
+      if (state === State.Playing) {
+        console.log('Pausing...');
+        await TrackPlayer.pause();
+        return;
       }
+
+      // For any other state (None, Paused, Stopped, etc.) — always setup and play
+      console.log('Setting up player and starting playback for chapter:', curChapter.id, 'verse:', curVerse.verseNumber);
+      await setupTrackPlayer();
+      await startSlokaPlayback(curChapter.id, curVerse.verseNumber, false);
+      console.log('=== PLAYBACK STARTED ===');
+    } catch (err: any) {
+      console.error('togglePlayback error:', err);
+      Alert.alert('Playback Error', String(err?.message || err));
+    }
+  };
+
+  const goToNextSloka = () => {
+    let nextVerseNum = curVerse.verseNumber + 1;
+    const currentChapterVerses = curChapter.verses;
+    
+    const nextVerse = currentChapterVerses.find(v => v.verseNumber === nextVerseNum);
+    
+    if (nextVerse) {
+      setCurVerse(nextVerse);
+    } else {
+      // Move to next chapter
+      const nextChapterId = curChapter.id + 1;
+      const nextChapter = gitaChapters.find(c => c.id === nextChapterId);
+      
+      if (nextChapter && nextChapter.verses.length > 0) {
+        setCurChapter(nextChapter);
+        setCurVerse(nextChapter.verses[0]);
+      } else {
+        Alert.alert("Gita Complete", "You have reached the end of the Bhagavad Gita.");
+      }
+    }
+  };
+
+  const goToPrevSloka = () => {
+    let prevVerseNum = curVerse.verseNumber - 1;
+    
+    if (prevVerseNum >= 1) {
+      const prevVerse = curChapter.verses.find(v => v.verseNumber === prevVerseNum);
+      if (prevVerse) {
+        setCurVerse(prevVerse);
+        return;
+      }
+    }
+    
+    // Move to previous chapter
+    const prevChapterId = curChapter.id - 1;
+    const prevChapter = gitaChapters.find(c => c.id === prevChapterId);
+    
+    if (prevChapter && prevChapter.verses.length > 0) {
+      setCurChapter(prevChapter);
+      // Go to last verse of previous chapter
+      setCurVerse(prevChapter.verses[prevChapter.verses.length - 1]);
+    } else {
+      Alert.alert("First Sloka", "You are at the beginning of the Bhagavad Gita.");
     }
   };
 
@@ -67,6 +145,13 @@ const SlokaDetailScreen: React.FC<SlokaDetailScreenProps> = ({ chapter, verse, o
 
   const skipBackward = async () => {
     await TrackPlayer.seekTo(Math.max(0, position - 10));
+  };
+
+  const handleSeekRequest = (evt: any) => {
+    if (playerWidth > 0 && duration > 0) {
+      const ratio = evt.nativeEvent.locationX / playerWidth;
+      TrackPlayer.seekTo(ratio * duration);
+    }
   };
 
 
@@ -107,39 +192,39 @@ const SlokaDetailScreen: React.FC<SlokaDetailScreenProps> = ({ chapter, verse, o
         
         {/* Titles */}
         <View style={styles.titleContainer}>
-          <Text style={styles.chapterLabel}>{t.tabs.chapters.toUpperCase().slice(0, -1)} {chapter.chapterNumber}</Text>
-          <Text style={styles.chapterTitle}>{chapter.name}</Text>
-          <Text style={styles.slokaLabel}>{t.chapters.versesCount.toUpperCase().slice(0, -1)} {verse.verseNumber}</Text>
+          <Text style={styles.chapterLabel}>{t.tabs.chapters.toUpperCase().slice(0, -1)} {curChapter.chapterNumber}</Text>
+          <Text style={styles.chapterTitle}>{curChapter.name}</Text>
+          <Text style={styles.slokaLabel}>{t.chapters.versesCount.toUpperCase().slice(0, -1)} {curVerse.verseNumber}</Text>
         </View>
 
         {/* Sanskrit Card */}
         <View style={styles.sanskritCard}>
           <Text style={styles.devanagariText}>
-            {verse.sanskrit || "Sanskrit missing"}
+            {curVerse.sanskrit || "Sanskrit missing"}
           </Text>
         </View>
 
         {/* Transliteration */}
         <View style={styles.transliterationContainer}>
           <Text style={styles.transliterationText}>
-            {verse.transliteration || "Transliteration missing"}
+            {curVerse.transliteration || "Transliteration missing"}
           </Text>
         </View>
 
         {/* Translation */}
         <View style={styles.translationContainer}>
-          {!!verse.explanation && (
+          {!!curVerse.explanation && (
             <>
               <Text style={styles.translationLabel}>WORD MEANINGS</Text>
-              <Text style={styles.translationText}>{verse.explanation}</Text>
+              <Text style={styles.translationText}>{curVerse.explanation}</Text>
               <View style={{height: 20}} />
             </>
           )}
 
-          {!!verse.example && (
+          {!!curVerse.example && (
             <>
               <Text style={[styles.translationLabel, {color: '#CA7532'}]}>EXAMPLE</Text>
-              <Text style={[styles.translationText, {fontStyle: 'italic', marginBottom: 20}]}>{verse.example}</Text>
+              <Text style={[styles.translationText, {fontStyle: 'italic', marginBottom: 20}]}>{curVerse.example}</Text>
             </>
           )}
 
@@ -184,38 +269,63 @@ const SlokaDetailScreen: React.FC<SlokaDetailScreenProps> = ({ chapter, verse, o
           </TouchableOpacity>
         </View>
 
-        {/* Audio Player Controls */}
-        <View style={styles.playerRow}>
-          <TouchableOpacity style={styles.playerIconBtn}>
-            <Repeat color={isDarkMode ? '#7A726B' : '#A0988E'} size={20} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.playerIconBtn} onPress={skipBackward}>
-            <SkipBack color={isDarkMode ? '#FFF' : '#151515'} size={22} fill={isDarkMode ? '#FFF' : '#151515'} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.playBtn} activeOpacity={0.8} onPress={togglePlayback}>
-            {isPlaying ? (
-              <View style={{ flexDirection: 'row', gap: 4 }}>
-                 <View style={{ width: 4, height: 18, backgroundColor: '#FFF', borderRadius: 2 }} />
-                 <View style={{ width: 4, height: 18, backgroundColor: '#FFF', borderRadius: 2 }} />
-              </View>
-            ) : (
-              <Play color="#FFF" size={20} fill="#FFF" style={{marginLeft: 4}} />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.playerIconBtn} onPress={skipForward}>
-            <SkipForward color={isDarkMode ? '#FFF' : '#151515'} size={22} fill={isDarkMode ? '#FFF' : '#151515'} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.playerIconBtn}>
-            <Volume2 color={isDarkMode ? '#7A726B' : '#A0988E'} size={20} />
-          </TouchableOpacity>
+        {/* Waveform Visualizer */}
+        <Pressable 
+          style={styles.waveformContainer} 
+          onLayout={(e) => setPlayerWidth(e.nativeEvent.layout.width)}
+          onPress={handleSeekRequest}
+        >
+          {WAVEFORM_BARS.map((height, index) => {
+            const isActive = duration > 0 ? (index / WAVEFORM_BARS.length) <= (position / duration) : false;
+            return (
+              <View 
+                key={index}
+                style={[
+                  styles.waveformBar, 
+                  { 
+                    height: height * 45, 
+                    backgroundColor: isActive ? '#F4715A' : (isDarkMode ? '#4A423B' : '#D9D9D9') 
+                  }
+                ]} 
+              />
+            );
+          })}
+        </Pressable>
+
+        {/* Timers */}
+        <View style={styles.timersRow}>
+          <Text style={styles.timerText}>{formatTime(position)}</Text>
+          <Text style={styles.timerText}>{formatTime(duration)}</Text>
         </View>
 
-        {/* Progress Bar (Optional Add-on for better UX) */}
-        {duration > 0 && (
-          <View style={{ height: 2, backgroundColor: isDarkMode ? '#4A423B' : '#EEE', marginTop: 15, borderRadius: 1 }}>
-            <View style={{ width: `${(position / duration) * 100}%`, height: '100%', backgroundColor: '#CA7532', borderRadius: 1 }} />
-          </View>
-        )}
+        {/* Audio Player Controls */}
+        <View style={styles.playerControlsWrapper}>
+          <TouchableOpacity style={styles.scrubBtn} onPress={goToPrevSloka}>
+            <SkipBack color={isDarkMode ? '#FFF' : '#151515'} size={24} fill={isDarkMode ? '#FFF' : '#151515'} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.scrubBtn} onPress={skipBackward}>
+            <RotateCcw color={isDarkMode ? '#EAE1D3' : '#151515'} size={28} />
+            <Text style={[styles.scrubText, { color: isDarkMode ? '#EAE1D3' : '#151515' }]}>10</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.bigPlayBtn} activeOpacity={0.8} onPress={togglePlayback}>
+            {isPlaying ? (
+              <Pause color="#FFF" size={30} fill="#FFF" />
+            ) : (
+              <Play color="#FFF" size={30} fill="#FFF" style={{marginLeft: 4}} />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.scrubBtn} onPress={skipForward}>
+            <RotateCw color={isDarkMode ? '#EAE1D3' : '#151515'} size={28} />
+            <Text style={[styles.scrubText, { color: isDarkMode ? '#EAE1D3' : '#151515' }]}>10</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.scrubBtn} onPress={goToNextSloka}>
+            <SkipForward color={isDarkMode ? '#FFF' : '#151515'} size={24} fill={isDarkMode ? '#FFF' : '#151515'} />
+          </TouchableOpacity>
+        </View>
 
       </View>
 
@@ -447,27 +557,60 @@ const getStyles = (isDark: boolean, fm: number) => StyleSheet.create({
     color: isDark ? '#C2BAAE' : '#555',
     letterSpacing: 0.5,
   },
-  playerRow: {
+  playerControlsWrapper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
+    marginBottom: 5,
   },
-  playerIconBtn: {
+  scrubBtn: {
     padding: 10,
-  },
-  playBtn: {
-    backgroundColor: '#CA7532',
-    width: 60,
-    height: 50,
-    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#CA7532',
+  },
+  scrubText: {
+    position: 'absolute',
+    fontSize: 9,
+    fontWeight: 'bold',
+    top: '48%',
+  },
+  bigPlayBtn: {
+    backgroundColor: '#F4715A',
+    width: 65,
+    height: 65,
+    borderRadius: 32.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#F4715A',
     shadowOpacity: 0.4,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 5 },
-    elevation: 5,
+    elevation: 4,
+  },
+  waveformContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 50,
+    marginTop: 10,
+    paddingHorizontal: 5,
+  },
+  waveformBar: {
+    width: 3.5,
+    borderRadius: 2,
+  },
+  timersRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 5,
+    marginBottom: 10,
+    paddingHorizontal: 5,
+  },
+  timerText: {
+    fontSize: 12 * fm,
+    color: isDark ? '#A0988E' : '#70685E',
+    fontWeight: '700',
   },
   
   modalBg: {

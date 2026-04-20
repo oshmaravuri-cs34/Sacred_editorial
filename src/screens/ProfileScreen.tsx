@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Image, TouchableOpacity, Switch, Platform, Modal, TextInput, KeyboardAvoidingView, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { Menu, Settings, Edit2, Globe, Moon, Type, Bell, DownloadCloud, ChevronRight, Edit3, Trash2, X, Check, Camera, Image as ImageIcon, ChevronUp, ChevronDown, Clock, Eye } from 'lucide-react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-// @ts-ignore
-import RNHTMLtoPDF from 'react-native-html-to-pdf';
+import { generatePDF } from 'react-native-html-to-pdf';
 import RNFS from 'react-native-fs';
+import FileViewer from 'react-native-file-viewer';
 import { useTheme, LanguageCode } from '../context/ThemeContext';
 import { translations } from '../data/translations';
 import { gitaChapters } from '../data/gitaData';
@@ -29,6 +29,8 @@ const ProfileScreen = () => {
   const [isLangModalVisible, setIsLangModalVisible] = useState(false);
   const [isDownloadModalVisible, setIsDownloadModalVisible] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadCompleteVisible, setIsDownloadCompleteVisible] = useState(false);
+  const [downloadedFilePath, setDownloadedFilePath] = useState('');
   const [tempFontSize, setTempFontSize] = useState(fontSizeMultiplier);
   const [profileImageUri, setProfileImageUri] = useState<string | null>(null);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
@@ -107,12 +109,23 @@ const ProfileScreen = () => {
         directory: 'Documents',
       };
 
-      const file = await RNHTMLtoPDF.convert(options);
+      const file = await generatePDF(options);
       
-      Alert.alert(
-        "Download Complete",
-        `All chapters have been saved successfully to your offline storage.\n(${file.filePath})`
-      );
+      let finalPath = file.filePath || '';
+      
+      if (Platform.OS === 'android' && RNFS.DownloadDirectoryPath) {
+        try {
+          const timestamp = new Date().getTime();
+          const publicPath = `${RNFS.DownloadDirectoryPath}/BhagavadGita_Offline_${timestamp}.pdf`;
+          await RNFS.copyFile(finalPath, publicPath);
+          finalPath = publicPath;
+        } catch (copyErr) {
+          console.log('Could not copy to public downloads:', copyErr);
+        }
+      }
+      
+      setDownloadedFilePath(finalPath);
+      setIsDownloadCompleteVisible(true);
     } catch (e: any) {
       console.error(e);
       Alert.alert("Error", "Failed to generate PDF. " + e.message);
@@ -651,6 +664,50 @@ const ProfileScreen = () => {
                   )}
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Offline Download Complete Modal */}
+      <Modal visible={isDownloadCompleteVisible} animationType="fade" transparent={true}>
+        <View style={styles.pickerModalBg}>
+          <View style={styles.pickerModalContainer}>
+            <View style={styles.pickerModalHeader}>
+              <Text style={styles.pickerModalTitle}>Download Complete</Text>
+              <TouchableOpacity onPress={() => setIsDownloadCompleteVisible(false)} style={styles.closeBtn}>
+                <X color="#A45511" size={20} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ paddingVertical: 10, alignItems: 'center' }}>
+              <DownloadCloud color="#CA7532" size={40} style={{ marginBottom: 15 }} />
+              <Text style={{ fontFamily: 'serif', fontSize: 16 * fm, color: isDarkMode ? '#EAE1D3' : '#333', textAlign: 'center', marginBottom: 15 }}>
+                All chapters have been beautifully bound and saved to your device for offline reading.
+              </Text>
+              <Text style={{ fontSize: 13 * fm, color: '#CA7532', textAlign: 'center', marginBottom: 25, paddingHorizontal: 10 }} numberOfLines={3}>
+                {'Saved at:\n' + downloadedFilePath}
+              </Text>
+              
+              <TouchableOpacity 
+                style={[styles.saveBtn, { width: '80%' }]} 
+                onPress={() => {
+                  FileViewer.open(downloadedFilePath, { showOpenWithDialog: true })
+                    .catch(e => {
+                      console.log('Error opening file:', e);
+                      const errMsg = e && e.message ? e.message : String(e);
+                      if (errMsg.includes('No app associated')) {
+                        Alert.alert('No PDF Reader', 'Your device does not have an app installed to read PDFs. Please install Google Drive or Adobe Acrobat.');
+                      } else {
+                        Alert.alert('Error', `Failed to open file: ${errMsg}\nDid you rebuild the app?`);
+                      }
+                    });
+                  setIsDownloadCompleteVisible(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.saveBtnText}>OPEN</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

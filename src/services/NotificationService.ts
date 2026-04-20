@@ -1,9 +1,13 @@
 import notifee, { AndroidImportance, TriggerType, RepeatFrequency, AndroidAction, EventType } from '@notifee/react-native';
-import TrackPlayer, { Capability, AppKilledPlaybackBehavior } from 'react-native-track-player';
+import TrackPlayer, { Capability, AppKilledPlaybackBehavior, Event } from 'react-native-track-player';
 import { getSlokaOfTheDay } from '../utils/gitaUtils';
 import { gitaChapters } from '../data/gitaData';
+import { API_BASE_URL } from '../config/api';
+import { getSloka } from './apiClient';
 
 export const NOTIFICATION_CHANNEL_ID = 'sloka_reminder';
+
+let isPlayerInitialized = false;
 
 // Simple global subscriber for notification events
 type NotificationListener = (sloka: { chapterId: number, verseNumber: number }) => void;
@@ -70,6 +74,7 @@ export const scheduleDailySlokaNotification = async (hour: number = 8, minute: n
 };
 
 export const setupTrackPlayer = async () => {
+    if (isPlayerInitialized) return;
     try {
         await TrackPlayer.setupPlayer();
         await TrackPlayer.updateOptions({
@@ -83,12 +88,14 @@ export const setupTrackPlayer = async () => {
             ],
             compactCapabilities: [Capability.Play, Capability.Pause],
         });
+        isPlayerInitialized = true;
     } catch (e) {
         console.log('Player already initialized or error', e);
+        isPlayerInitialized = true;
     }
 };
 
-export const startSlokaPlayback = async (chapterId?: number, verseNumber?: number) => {
+export const startSlokaPlayback = async (chapterId?: number, verseNumber?: number, notifyListener: boolean = true) => {
     let sloka;
     if (chapterId && verseNumber) {
         const chapter = gitaChapters.find(c => c.id === chapterId);
@@ -101,24 +108,34 @@ export const startSlokaPlayback = async (chapterId?: number, verseNumber?: numbe
     if (!sloka) {
         sloka = getSlokaOfTheDay();
     }
-    
-    // Notify listener (UI) if exists
-    if (listener) {
+
+    // Only notify listener for notification-triggered playback, not in-app button presses
+    if (notifyListener && listener) {
         listener({ chapterId: sloka.chapter.id, verseNumber: sloka.verse.verseNumber });
     }
 
-    // Sample Audio URL - Replace with actual content
-    const audioUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+    // Make real backend call to retrieve dynamic MP3 URL
+    let finalAudioUrl = '';
+    try {
+        const response = await getSloka(sloka.chapter.id, sloka.verse.verseNumber);
+        finalAudioUrl = response.audio;
+        console.log('Audio URL from backend:', finalAudioUrl);
+    } catch (e) {
+        console.error("Failed to fetch audio url from backend, falling back to local construct", e);
+        finalAudioUrl = `${API_BASE_URL}/audio/${sloka.chapter.id}_${sloka.verse.verseNumber}.mp3`;
+        console.log('Fallback audio URL:', finalAudioUrl);
+    }
 
+    // Reset and load the track — let errors propagate up
     await TrackPlayer.reset();
     await TrackPlayer.add({
         id: `sloka-${sloka.chapter.id}-${sloka.verse.verseNumber}`,
-        url: audioUrl,
+        url: finalAudioUrl,
         title: `Chapter ${sloka.chapter.chapterNumber} Sloka ${sloka.verse.verseNumber}`,
-        artist: 'Bhagavad Gita',
-        artwork: 'https://placeholder.com/artwork.jpg', // Placeholder
+        artist: 'Bhagavad Gita'
     });
     await TrackPlayer.play();
+    console.log('TrackPlayer.play() called successfully for:', finalAudioUrl);
 };
 
 // Handle notification events
@@ -136,4 +153,12 @@ notifee.onForegroundEvent(async ({ type, detail }) => {
         await startSlokaPlayback();
     }
 });
+
+TrackPlayer.addEventListener(Event.PlaybackError, (error: any) => {
+    console.error('Playback Error captured through event listener:', error);
+    import('react-native').then(({ Alert }) => {
+        Alert.alert("Playback Error", `Failed to play audio: ${error.message || JSON.stringify(error)}`);
+    });
+});
+
 
